@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cargar CSV, Zoom y Seleccionar Puntos</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom"></script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 20px;
+    }
+    input[type="file"] {
+      margin-bottom: 20px;
+    }
+    canvas {
+      max-width: 600px;
+      margin-top: 20px;
+    }
+    table {
+      margin-top: 20px;
+      border-collapse: collapse;
+      width: 50%;
+    }
+    th, td {
+      border: 1px solid #ddd;
+      padding: 8px;
+      text-align: center;
+    }
+    th {
+      background-color: #f4f4f4;
+    }
+  </style>
+</head>
+<body>
+  <h1>Cargar CSV, Zoom y Selección de Puntos</h1>
+  <p>Selecciona un archivo CSV con dos columnas para graficar. Usa zoom y selecciona dos puntos.</p>
+  <input type="file" id="csvFileInput" accept=".csv">
+
+  <canvas id="chart" width="600" height="400"></canvas>
+
+  <h2>Puntos Seleccionados</h2>
+  <table id="selected-points">
+    <thead>
+      <tr>
+        <th>Punto</th>
+        <th>X</th>
+        <th>Y</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>1</td>
+        <td id="x1">-</td>
+        <td id="y1">-</td>
+      </tr>
+      <tr>
+        <td>2</td>
+        <td id="x2">-</td>
+        <td id="y2">-</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <script>
+    let selectedPoints = [];
+    const table = document.getElementById('selected-points');
+
+    document.getElementById('csvFileInput').addEventListener('change', function(event) {
+      const file = event.target.files[0];
+      if (!file) {
+        alert("Por favor, selecciona un archivo.");
+        return;
+      }
+
+      const reader = new FileReader();
+
+      reader.onload = function(e) {
+        const content = e.target.result;
+        const rows = content.split('\n').map(row => row.split(','));
+        
+        if (rows.length < 2) {
+          alert("El archivo debe contener al menos dos columnas con datos.");
+          return;
+        }
+
+        const labels = [];
+        const data = [];
+
+        rows.forEach((row, index) => {
+          if (index === 0) return; // Saltar el encabezado
+          if (row.length >= 2) {
+            labels.push(row[0].trim()); // Primera columna como etiqueta
+            data.push(Number(row[1].trim())); // Segunda columna como dato
+          }
+        });
+
+        if (labels.length === 0 || data.length === 0) {
+          alert("No se encontraron datos válidos.");
+          return;
+        }
+
+        createChart(labels, data);
+      };
+
+      reader.onerror = function() {
+        alert("Error al leer el archivo.");
+      };
+
+      reader.readAsText(file);
+    });
+
+    function createChart(labels, data) {
+      const ctx = document.getElementById('chart').getContext('2d');
+      const chart = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: labels,
+          datasets: [{
+            label: 'Datos del CSV',
+            data: data,
+            borderColor: 'blue',
+            backgroundColor: 'rgba(0, 123, 255, 0.5)',
+            fill: false,
+            pointRadius: 1,
+            pointHoverRadius: 1,
+          }]
+        },
+        options: {
+          responsive: true,
+          plugins: {
+            tooltip: {
+              callbacks: {
+                label: function(context) {
+                  return `X: ${context.label}, Y: ${context.raw}`;
+                }
+              }
+            },
+            zoom: {
+              zoom: {
+                wheel: {
+                  enabled: true, // Habilitar zoom con la rueda del ratón
+                },
+                pinch: {
+                  enabled: true // Habilitar zoom con gestos táctiles
+                },
+                mode: 'x', // Hacer zoom solo en el eje X
+              },
+              pan: {
+                enabled: true, // Habilitar desplazamiento
+                mode: 'x'
+              }
+            }
+          },
+          onClick: (event, elements) => {
+            if (elements.length > 0) {
+              const elementIndex = elements[0].index;
+              const xValue = labels[elementIndex];
+              const yValue = data[elementIndex];
+              updateSelectedPoints(xValue, yValue);
+            }
+          }
+        }
+      });
+    }
+
+    function updateSelectedPoints(x, y) {
+      if (selectedPoints.length < 2) {
+        selectedPoints.push({ x, y });
+      } else {
+        selectedPoints.shift();
+        selectedPoints.push({ x, y });
+      }
+
+      const [point1, point2] = selectedPoints;
+      document.getElementById('x1').textContent = point1 ? point1.x : '-';
+      document.getElementById('y1').textContent = point1 ? point1.y : '-';
+      document.getElementById('x2').textContent = point2 ? point2.x : '-';
+      document.getElementById('y2').textContent = point2 ? point2.y : '-';
+    }
+  </script>
+</body>
+</html>
